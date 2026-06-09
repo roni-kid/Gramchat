@@ -23,4 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-.env
+.env 
+# Dev utility scripts 
+apply-fixes.ps1 
+ 
+# Personal notes 
+things-to.md 
