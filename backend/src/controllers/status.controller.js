@@ -6,20 +6,8 @@ import { io, getReceiverSocketId } from "../lib/socket.js";
 // Get statuses from contacts (people the current user can see)
 export const getStatuses = async (req, res) => {
   try {
-    const myId = req.user._id;
-
-    // Get all user IDs except me
-    const otherUsers = await User.find({ _id: { $ne: myId } }).select("_id");
-    const otherUserIds = otherUsers.map((u) => u._id);
-
-    // Include my own statuses too
-    const allUserIds = [myId, ...otherUserIds];
-
-    const now = new Date();
-    const statuses = await Status.find({
-      userId: { $in: allUserIds },
-      expiresAt: { $gt: now },
-    })
+    // Single query — no need to pre-fetch all user IDs
+    const statuses = await Status.find({ expiresAt: { $gt: new Date() } })
       .populate("userId", "fullName profilePic")
       .sort({ createdAt: -1 });
 

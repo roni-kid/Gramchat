@@ -96,6 +96,18 @@ const StatusViewer = ({ statusGroup, onClose, onView }) => {
     if (status) onView(status._id);
   }, [idx, status]);
 
+  // Auto-advance slides every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIdx((p) => {
+        if (p < statusGroup.items.length - 1) return p + 1;
+        onClose();
+        return p;
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [idx, statusGroup.items.length, onClose]);
+
   const isOwn = (status?.userId?._id || status?.userId) === authUser._id;
   const viewedCount = status?.viewedBy?.length || 0;
 
@@ -167,7 +179,8 @@ const StatusPage = () => {
   const othersGroups = grouped.filter((g) => (g.user?._id || g.user) !== authUser._id);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 max-w-xl mx-auto">
+    <div className="h-screen pt-20">
+      <div className="overflow-y-auto h-full p-6 max-w-xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Status</h1>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary btn-sm gap-2 rounded-full">
@@ -234,6 +247,7 @@ const StatusPage = () => {
       {viewingGroup && (
         <StatusViewer statusGroup={viewingGroup} onClose={() => setViewingGroup(null)} onView={viewStatus} />
       )}
+    </div>
     </div>
   );
 };

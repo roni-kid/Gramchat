@@ -6,10 +6,13 @@ import { getReceiverSocketId, io } from "../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+    // .lean() returns plain JS objects instead of full Mongoose docs — much faster
+    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } })
+      .select("fullName email profilePic createdAt")
+      .lean();
     res.status(200).json(filteredUsers);
   } catch (error) {
-    console.error("Error in getUsersForSidebar: ", error.message);
+    console.error("Error in getUsersForSidebar:", error.message);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -18,17 +21,28 @@ export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
+    // Optional pagination: ?limit=50&before=<timestamp>
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const before = req.query.before ? new Date(req.query.before) : null;
 
-    const messages = await Message.find({
+    const filter = {
       $or: [
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
-    }).populate("replyTo", "text image fileName senderId");
+    };
+    if (before) filter.createdAt = { $lt: before };
 
-    res.status(200).json(messages);
+    const messages = await Message.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("replyTo", "text image fileName senderId")
+      .lean();
+
+    // Return in ascending order for display
+    res.status(200).json(messages.reverse());
   } catch (error) {
-    console.log("Error in getMessages controller: ", error.message);
+    console.log("Error in getMessages controller:", error.message);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -43,13 +57,14 @@ export const sendMessage = async (req, res) => {
     if (image) {
       const uploadResponse = await cloudinary.uploader.upload(image, {
         resource_type: "auto",
+        // Compress images automatically
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
       });
       imageUrl = uploadResponse.secure_url;
     }
 
     let uploadedFileUrl;
     if (fileUrl) {
-      // fileUrl comes as base64 for docs/videos
       const uploadResponse = await cloudinary.uploader.upload(fileUrl, {
         resource_type: "auto",
         folder: "gramchat_files",
@@ -70,8 +85,6 @@ export const sendMessage = async (req, res) => {
     });
 
     await newMessage.save();
-
-    // Populate replyTo for the response
     await newMessage.populate("replyTo", "text image fileName senderId");
 
     const receiverSocketId = getReceiverSocketId(receiverId);
@@ -81,7 +94,7 @@ export const sendMessage = async (req, res) => {
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.log("Error in sendMessage controller: ", error.message);
+    console.log("Error in sendMessage controller:", error.message);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -91,14 +104,18 @@ export const markMessagesAsRead = async (req, res) => {
     const { id: senderId } = req.params;
     const myId = req.user._id;
 
-    await Message.updateMany(
+    // updateMany with index-covered query — fast
+    const result = await Message.updateMany(
       { senderId, receiverId: myId, isRead: false },
-      { isRead: true }
+      { $set: { isRead: true } }
     );
 
-    const senderSocketId = getReceiverSocketId(senderId);
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("messagesRead", { readBy: myId.toString() });
+    // Only emit socket event if something actually changed
+    if (result.modifiedCount > 0) {
+      const senderSocketId = getReceiverSocketId(senderId);
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesRead", { readBy: myId.toString() });
+      }
     }
 
     res.status(200).json({ success: true });
@@ -117,17 +134,14 @@ export const addReaction = async (req, res) => {
     const message = await Message.findById(messageId);
     if (!message) return res.status(404).json({ message: "Message not found" });
 
-    // Remove existing reaction from this user (toggle off same emoji)
     const existingIdx = message.reactions.findIndex(
       (r) => r.userId.toString() === userId.toString()
     );
 
     if (existingIdx !== -1) {
       if (message.reactions[existingIdx].emoji === emoji) {
-        // Same emoji — remove it (toggle off)
         message.reactions.splice(existingIdx, 1);
       } else {
-        // Different emoji — replace
         message.reactions[existingIdx].emoji = emoji;
       }
     } else {
@@ -136,7 +150,6 @@ export const addReaction = async (req, res) => {
 
     await message.save();
 
-    // Notify the other party in real-time
     const otherUserId =
       message.senderId.toString() === userId.toString()
         ? message.receiverId?.toString()
@@ -145,15 +158,6 @@ export const addReaction = async (req, res) => {
     const otherSocketId = getReceiverSocketId(otherUserId);
     if (otherSocketId) {
       io.to(otherSocketId).emit("messageReaction", {
-        messageId,
-        reactions: message.reactions,
-      });
-    }
-
-    // Also notify the sender if reacting to own message in group (for DMs this handles it)
-    const senderSocketId = getReceiverSocketId(userId.toString());
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("messageReaction", {
         messageId,
         reactions: message.reactions,
       });

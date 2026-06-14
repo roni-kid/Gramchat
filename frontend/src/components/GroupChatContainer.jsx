@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useGroupStore } from "../store/useGroupStore";
 import { useAuthStore } from "../store/useAuthStore";
+import { axiosInstance } from "../lib/axios";
 import { formatMessageTime } from "../lib/utils";
 import MessageInput, { REACTION_EMOJIS } from "./MessageInput";
 import MessageSkeleton from "./Skeletons/MessageSkeleton";
 import GroupInfoModal from "./GroupInfoModal";
-import { ArrowLeft, Info, FileText, Film, Download, CornerUpLeft } from "lucide-react";
+import { ArrowLeft, Info, FileText, Film, Download, CornerUpLeft, X } from "lucide-react";
 
 const FileAttachment = ({ fileUrl, fileType, fileName, fileSize }) => {
   if (!fileUrl) return null;
@@ -71,7 +72,7 @@ const ReactionBar = ({ reactions, onReact, messageId, authUserId }) => {
 const GroupChatContainer = () => {
   const {
     selectedGroup, groupMessages, isGroupMessagesLoading,
-    getGroupMessages, sendGroupMessage, subscribeToGroupMessages,
+    getGroupMessages, subscribeToGroupMessages,
     unsubscribeFromGroupMessages, isGroupTyping, groupTypingUser, setReplyingTo,
   } = useGroupStore();
   const { authUser, onlineUsers } = useAuthStore();
@@ -93,9 +94,8 @@ const GroupChatContainer = () => {
     (m) => (m._id || m) === groupTypingUser
   );
 
-  // Group reactions (reuse DM approach via axiosInstance directly)
+  // FIX: use static axiosInstance import — no dynamic import needed
   const handleReact = async (messageId, emoji) => {
-    const { axiosInstance } = await import("../lib/axios.js");
     try {
       const res = await axiosInstance.post(`/messages/react/${messageId}`, { emoji });
       useGroupStore.setState({
@@ -120,6 +120,7 @@ const GroupChatContainer = () => {
       <div className="p-2.5 border-b border-base-300">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {/* Back arrow — mobile only */}
             <button className="lg:hidden btn btn-ghost btn-sm btn-circle"
               onClick={() => useGroupStore.getState().setSelectedGroup(null)}>
               <ArrowLeft className="size-5" />
@@ -136,9 +137,18 @@ const GroupChatContainer = () => {
               </p>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowInfo(true)}>
-            <Info className="size-4" />
-          </button>
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-1">
+            <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowInfo(true)}>
+              <Info className="size-4" />
+            </button>
+            {/* Close button — desktop only */}
+            <button className="hidden lg:flex btn btn-ghost btn-sm btn-circle"
+              onClick={() => useGroupStore.getState().setSelectedGroup(null)}>
+              <X className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
 

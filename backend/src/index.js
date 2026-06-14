@@ -10,18 +10,22 @@ import messageRoutes from "./routes/message.route.js";
 import groupRoutes from "./routes/group.route.js";
 import statusRoutes from "./routes/status.route.js";
 import { app, server } from "./lib/socket.js";
+import { getClientOrigins, getPort, validateRequiredEnv } from "./lib/config.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT;
+validateRequiredEnv();
+
+const PORT = getPort();
 const __dirname = path.resolve();
+const clientOrigins = getClientOrigins();
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: clientOrigins,
     credentials: true,
   })
 );

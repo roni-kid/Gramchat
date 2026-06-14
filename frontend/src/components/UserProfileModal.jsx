@@ -1,4 +1,4 @@
-import { X, Mail, User, Phone } from "lucide-react";
+import { X, Mail, User, Info } from "lucide-react";
 
 const UserProfileModal = ({ user, isOnline, onClose }) => {
   return (
@@ -74,7 +74,7 @@ const UserProfileModal = ({ user, isOnline, onClose }) => {
               {/* About / Bio placeholder — future feature */}
               <div className="flex items-center gap-3 p-3 bg-base-200 rounded-xl">
                 <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Phone className="size-4 text-primary" />
+                  <Info className="size-4 text-primary" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-base-content/50 mb-0.5">Status</p>

@@ -2,11 +2,16 @@
 
 A full-stack WhatsApp-clone built with React, Node.js, MongoDB, and Socket.io.
 
-> Built by **RoniKid** & **Modestus** — GCTU Computer Engineering
+> Built by **RoniKid** & **Modestus** 
 
 ---
 
 ## Features
+
+### Platform Targets
+- Windows and Android first via installable PWA support
+- Browser fallback for development and unsupported install flows
+- Apple, macOS, and Linux planned later
 
 ### Messaging
 - Real-time 1-on-1 messaging via Socket.io
@@ -57,6 +62,7 @@ A full-stack WhatsApp-clone built with React, Node.js, MongoDB, and Socket.io.
 | Media | Cloudinary |
 | Calls | WebRTC + Google STUN servers |
 | Auth | JWT + HTTP-only cookies |
+| Install target | PWA baseline for Windows and Android browsers |
 
 ---
 
@@ -110,11 +116,14 @@ Create a `.env` file inside `backend/`:
 PORT=5001
 MONGODB_URI=mongodb://localhost:27017/gramchat
 JWT_SECRET=your_jwt_secret_here
+CLIENT_URL=http://localhost:5173,http://127.0.0.1:5173
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 NODE_ENV=development
 ```
+
+You can also copy `backend/.env.example` to `backend/.env` and replace the placeholder values.
 
 ### 3. Set up the frontend
 
@@ -122,6 +131,8 @@ NODE_ENV=development
 cd ../frontend
 npm install
 ```
+
+For normal Windows development, no frontend `.env` is required. For Android testing from a phone on the same Wi-Fi, copy `frontend/.env.example` to `frontend/.env` and replace `192.168.1.20` with the Windows PC LAN IP. Add the matching `http://YOUR_PC_IP:5173` origin to `CLIENT_URL` in `backend/.env`.
 
 ### 4. Run the app
 
@@ -137,11 +148,22 @@ npm run dev
 
 Open `http://localhost:5173` in your browser.
 
+When testing from Android, start Vite with a network host:
+
+```bash
+cd frontend
+npm run dev -- --host 0.0.0.0
+```
+
+Then open `http://YOUR_PC_IP:5173` on the Android device.
+
 ---
 
 ## Environment Variables
 
 The `.env` file is **never committed to Git**. Each developer must create their own. See Step 2 above.
+
+If signup/login returns `Internal Server Error`, check that `backend/.env` exists, `JWT_SECRET` is set, MongoDB is running, and `MONGODB_URI` points to the running MongoDB instance.
 
 ---
 
@@ -150,6 +172,7 @@ The `.env` file is **never committed to Git**. Each developer must create their 
 - [x] Phase 1 — Profile modal, themes, full emoji panel, message search
 - [x] Phase 2 — Group chats, status/stories, reactions, replies, file sharing
 - [x] Phase 3 — Voice & video calls (WebRTC)
+- [x] Phase 4 - Installable Windows and Android PWA baseline
 - [ ] TURN server support for calls across strict NATs
 - [ ] Push notifications
 - [ ] Message forwarding

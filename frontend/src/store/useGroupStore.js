@@ -111,6 +111,14 @@ export const useGroupStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     socket.emit("joinGroup", { groupId });
 
+    // Remove stale listeners before attaching new ones — prevents accumulation on group switch
+    socket.off("newGroupMessage");
+    socket.off("groupUpdated");
+    socket.off("removedFromGroup");
+    socket.off("groupCreated");
+    socket.off("groupUserTyping");
+    socket.off("groupUserStopTyping");
+
     socket.on("newGroupMessage", ({ groupId: gId, message }) => {
       if (gId !== groupId) return;
       set({ groupMessages: [...get().groupMessages, message] });

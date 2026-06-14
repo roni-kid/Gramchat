@@ -21,6 +21,11 @@ const App = () => {
     checkAuth();
   }, [checkAuth]);
 
+  // Apply theme to <html> — DaisyUI requires this to cascade across the entire page
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   if (isCheckingAuth && !authUser)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -29,10 +34,9 @@ const App = () => {
     );
 
   return (
-    <div data-theme={theme}>
+    <>
       <Navbar />
 
-      {/* CallOverlay lives outside routes — works from any page */}
       {authUser && <CallOverlay />}
 
       <Routes>
@@ -45,7 +49,7 @@ const App = () => {
       </Routes>
 
       <Toaster />
-    </div>
+    </>
   );
 };
 export default App;

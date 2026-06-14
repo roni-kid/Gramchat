@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
+import { useGroupStore } from "../store/useGroupStore";
 import {
-  Image, Send, Smile, X, FileText, Film, Mic, CornerUpLeft, Paperclip,
+  Image, Send, Smile, X, FileText, Film, CornerUpLeft, Paperclip,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -62,7 +63,9 @@ const EMOJI_CATEGORIES = {
 const REACTION_EMOJIS = ["❤️","😂","😮","😢","😡","👍","👎","🔥","🎉","💯"];
 
 const FilePreview = ({ fileType, fileName, fileSize }) => {
-  const icon = fileType === "video" ? <Film className="size-5 text-primary" /> : <FileText className="size-5 text-primary" />;
+  const icon = fileType === "video"
+    ? <Film className="size-5 text-primary" />
+    : <FileText className="size-5 text-primary" />;
   const sizeStr = fileSize ? `${(fileSize / 1024 / 1024).toFixed(1)} MB` : "";
   return (
     <div className="flex items-center gap-2 bg-base-200 rounded-lg p-2 mb-2">
@@ -78,7 +81,7 @@ const FilePreview = ({ fileType, fileName, fileSize }) => {
 const MessageInput = ({ store = "dm", groupId = null }) => {
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
-  const [fileData, setFileData] = useState(null); // { base64, type, name, size }
+  const [fileData, setFileData] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeCategory, setActiveCategory] = useState("😀");
   const [emojiSearch, setEmojiSearch] = useState("");
@@ -87,7 +90,9 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
   const typingTimeoutRef = useRef(null);
 
   const chatStore = useChatStore();
-  const { replyingTo, clearReplyingTo } = store === "dm" ? chatStore : (() => { const { useGroupStore } = require("../store/useGroupStore"); return useGroupStore(); })();
+  // FIX: use static import — require() does not exist in ESM/Vite
+  const groupStore = useGroupStore();
+  const { replyingTo, clearReplyingTo } = store === "dm" ? chatStore : groupStore;
 
   const emitTyping = () => {
     const socket = useAuthStore.getState().socket;
@@ -135,45 +140,54 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
   };
 
   const removeImage = () => { setImagePreview(null); if (imageInputRef.current) imageInputRef.current.value = ""; };
-  const removeFile = () => { setFileData(null); if (fileInputRef.current) fileInputRef.current.value = ""; };
+  const removeFile  = () => { setFileData(null);    if (fileInputRef.current)  fileInputRef.current.value  = ""; };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview && !fileData) return;
+
     const socket = useAuthStore.getState().socket;
     if (socket) {
-      if (store === "dm") { const { selectedUser } = chatStore; if (selectedUser) socket.emit("stopTyping", { receiverId: selectedUser._id }); }
-      else socket.emit("groupStopTyping", { groupId });
+      if (store === "dm") {
+        const { selectedUser } = chatStore;
+        if (selectedUser) socket.emit("stopTyping", { receiverId: selectedUser._id });
+      } else {
+        socket.emit("groupStopTyping", { groupId });
+      }
     }
     clearTimeout(typingTimeoutRef.current);
     setShowEmojiPicker(false);
+
     try {
       const payload = {
         text: text.trim(),
         image: imagePreview,
-        fileUrl: fileData?.base64 || null,
-        fileType: fileData?.type || null,
-        fileName: fileData?.name || null,
-        fileSize: fileData?.size || null,
+        fileUrl:   fileData?.base64 || null,
+        fileType:  fileData?.type   || null,
+        fileName:  fileData?.name   || null,
+        fileSize:  fileData?.size   || null,
       };
+
       if (store === "dm") {
         await chatStore.sendMessage(payload);
       } else {
-        const { useGroupStore } = await import("../store/useGroupStore.js");
+        // FIX: use static store reference — no dynamic import needed
         await useGroupStore.getState().sendGroupMessage(groupId, payload);
       }
+
       setText("");
       setImagePreview(null);
       setFileData(null);
       if (imageInputRef.current) imageInputRef.current.value = "";
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (fileInputRef.current)  fileInputRef.current.value  = "";
     } catch (error) {
       console.error("Failed to send message:", error);
     }
   };
 
   const getDisplayEmojis = () => {
-    if (emojiSearch.trim()) return Object.values(EMOJI_CATEGORIES).flat().filter(e => e.includes(emojiSearch));
+    if (emojiSearch.trim())
+      return Object.values(EMOJI_CATEGORIES).flat().filter((e) => e.includes(emojiSearch));
     return EMOJI_CATEGORIES[activeCategory] || [];
   };
 
@@ -182,8 +196,6 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
     setShowEmojiPicker(false);
     setEmojiSearch("");
   };
-
-  const replyMsg = replyingTo;
 
   return (
     <div className="p-3 w-full relative">
@@ -222,13 +234,13 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
       )}
 
       {/* Reply preview */}
-      {replyMsg && (
+      {replyingTo && (
         <div className="mb-2 flex items-center gap-2 bg-base-200 rounded-xl px-3 py-2 border-l-4 border-primary">
           <CornerUpLeft className="size-4 text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-primary font-medium mb-0.5">Replying to message</p>
             <p className="text-xs text-base-content/60 truncate">
-              {replyMsg.text || (replyMsg.image ? "📷 Photo" : replyMsg.fileName || "Attachment")}
+              {replyingTo.text || (replyingTo.image ? "📷 Photo" : replyingTo.fileName || "Attachment")}
             </p>
           </div>
           <button onClick={clearReplyingTo} className="btn btn-ghost btn-xs btn-circle flex-shrink-0">
@@ -242,7 +254,8 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
         <div className="mb-2 flex items-center gap-2">
           <div className="relative">
             <img src={imagePreview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-base-300" />
-            <button onClick={removeImage} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-error text-error-content flex items-center justify-center" type="button">
+            <button onClick={removeImage} type="button"
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-error text-error-content flex items-center justify-center">
               <X className="size-3" />
             </button>
           </div>
@@ -253,7 +266,8 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
       {fileData && (
         <div className="mb-2 relative">
           <FilePreview fileType={fileData.type} fileName={fileData.name} fileSize={fileData.size} />
-          <button onClick={removeFile} className="absolute top-1 right-1 w-5 h-5 rounded-full bg-error text-error-content flex items-center justify-center" type="button">
+          <button onClick={removeFile} type="button"
+            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-error text-error-content flex items-center justify-center">
             <X className="size-3" />
           </button>
         </div>
@@ -281,7 +295,8 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
 
         {/* Hidden inputs */}
         <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={handleImageChange} />
-        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,video/*,audio/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,video/*,audio/*"
+          className="hidden" ref={fileInputRef} onChange={handleFileChange} />
 
         {/* Image attach */}
         <button type="button"
@@ -298,7 +313,8 @@ const MessageInput = ({ store = "dm", groupId = null }) => {
         </button>
 
         {/* Send */}
-        <button type="submit" className="btn btn-circle btn-sm btn-primary" disabled={!text.trim() && !imagePreview && !fileData}>
+        <button type="submit" className="btn btn-circle btn-sm btn-primary"
+          disabled={!text.trim() && !imagePreview && !fileData}>
           <Send size={18} />
         </button>
       </form>

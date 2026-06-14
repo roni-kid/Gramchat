@@ -20,40 +20,32 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",
     },
-    text: {
-      type: String,
-    },
-    image: {
-      type: String,
-    },
-    // File attachments (documents, videos, audio, etc.)
-    fileUrl: {
-      type: String,
-    },
-    fileType: {
-      type: String, // "pdf", "video", "audio", "document"
-    },
-    fileName: {
-      type: String,
-    },
-    fileSize: {
-      type: Number,
-    },
-    // Reply/quote a previous message
+    text: { type: String },
+    image: { type: String },
+    fileUrl: { type: String },
+    fileType: { type: String },
+    fileName: { type: String },
+    fileSize: { type: Number },
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
     },
-    // Emoji reactions: [{ userId, emoji }]
     reactions: [reactionSchema],
-    // Read receipts (DM only)
-    isRead: {
-      type: Boolean,
-      default: false,
-    },
+    isRead: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
+
+// ── Indexes for fast message fetching ────────────────────────────────────────
+// Speeds up getMessages (DM conversation queries)
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: 1 });
+messageSchema.index({ receiverId: 1, senderId: 1, createdAt: 1 });
+
+// Speeds up markMessagesAsRead
+messageSchema.index({ senderId: 1, receiverId: 1, isRead: 1 });
+
+// Speeds up group message fetching
+messageSchema.index({ groupId: 1, createdAt: 1 });
 
 const Message = mongoose.model("Message", messageSchema);
 export default Message;

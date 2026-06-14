@@ -75,12 +75,19 @@ export const getGroupMessages = async (req, res) => {
     const group = await Group.findOne({ _id: groupId, members: userId });
     if (!group) return res.status(403).json({ message: "Not a member of this group" });
 
-    const messages = await Message.find({ groupId })
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const before = req.query.before ? new Date(req.query.before) : null;
+    const filter = { groupId };
+    if (before) filter.createdAt = { $lt: before };
+
+    const messages = await Message.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
       .populate("senderId", "fullName profilePic")
       .populate("replyTo", "text image fileName senderId")
-      .sort({ createdAt: 1 });
+      .lean();
 
-    res.status(200).json(messages);
+    res.status(200).json(messages.reverse());
   } catch (error) {
     console.log("Error in getGroupMessages:", error.message);
     res.status(500).json({ message: "Internal server error" });
@@ -133,12 +140,10 @@ export const sendGroupMessage = async (req, res) => {
     group.lastMessage = newMessage._id;
     await group.save();
 
-    // Broadcast to all group members' sockets
-    group.members.forEach((memberId) => {
-      const socketId = getReceiverSocketId(memberId.toString());
-      if (socketId) {
-        io.to(socketId).emit("newGroupMessage", { groupId, message: newMessage });
-      }
+    // Broadcast to all members via socket room
+    io.to(`group:${group._id}`).emit("newGroupMessage", {
+      groupId: group._id,
+      message: newMessage,
     });
 
     res.status(201).json(newMessage);
