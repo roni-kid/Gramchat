@@ -29,3 +29,6 @@ apply-fixes.ps1
  
 # Personal notes 
 things-to.md 
+
+# Codex/local attachments
+.codex-remote-attachments/

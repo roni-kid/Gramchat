@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/check-dev-deps.cjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -12,7 +13,6 @@
   "dependencies": {
     "@headlessui/react": "^2.2.9",
     "axios": "^1.12.2",
-    "chat-app": "file:..",
     "flowbite": "^3.1.2",
     "lucide-react": "^0.545.0",
     "react": "^19.1.1",

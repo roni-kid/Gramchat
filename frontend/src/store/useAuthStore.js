@@ -6,6 +6,16 @@ import { io } from "socket.io-client";
 const BASE_URL =
   import.meta.env.VITE_SOCKET_URL || (import.meta.env.MODE === "development" ? "http://localhost:5001" : "/");
 
+const getAuthErrorMessage = (error, fallback) => {
+  if (error.response?.data?.message) return error.response.data.message;
+
+  if (error.code === "ERR_NETWORK" || !error.response) {
+    return "Cannot reach the backend. Start the backend on port 5001 and check the frontend API URL.";
+  }
+
+  return fallback;
+};
+
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
@@ -37,7 +47,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Account created successfully");
       get().connectSocket();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Signup failed");
+      toast.error(getAuthErrorMessage(error, "Signup failed"));
     } finally {
       set({ isSigningUp: false });
     }
@@ -52,7 +62,7 @@ export const useAuthStore = create((set, get) => ({
 
       get().connectSocket();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Login failed");
+      toast.error(getAuthErrorMessage(error, "Login failed"));
     } finally {
       set({ isLoggingIn: false });
     }

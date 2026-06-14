@@ -103,12 +103,17 @@ git clone https://github.com/roni-kid/Gramchat.git
 cd Gramchat
 ```
 
-### 2. Set up the backend
+### 2. Install dependencies
+
+Run the project setup command from the repository root:
 
 ```bash
-cd backend
-npm install
+npm run setup
 ```
+
+This installs both `backend/node_modules` and `frontend/node_modules`. If you skip this step, `npm run dev` inside `frontend/` will fail because `vite` is installed locally, not globally.
+
+### 3. Set up the backend environment
 
 Create a `.env` file inside `backend/`:
 
@@ -125,16 +130,19 @@ NODE_ENV=development
 
 You can also copy `backend/.env.example` to `backend/.env` and replace the placeholder values.
 
-### 3. Set up the frontend
-
-```bash
-cd ../frontend
-npm install
-```
+### 4. Set up the frontend environment
 
 For normal Windows development, no frontend `.env` is required. For Android testing from a phone on the same Wi-Fi, copy `frontend/.env.example` to `frontend/.env` and replace `192.168.1.20` with the Windows PC LAN IP. Add the matching `http://YOUR_PC_IP:5173` origin to `CLIENT_URL` in `backend/.env`.
 
-### 4. Run the app
+### 5. Run the app
+
+From the repository root:
+
+```bash
+npm run dev
+```
+
+Or run the two apps in separate terminals:
 
 ```bash
 # Terminal 1 — backend
@@ -147,6 +155,12 @@ npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
+
+Check backend health at `http://localhost:5001/api/health`. It should return:
+
+```json
+{ "status": "ok" }
+```
 
 When testing from Android, start Vite with a network host:
 
@@ -161,9 +175,25 @@ Then open `http://YOUR_PC_IP:5173` on the Android device.
 
 ## Environment Variables
 
-The `.env` file is **never committed to Git**. Each developer must create their own. See Step 2 above.
+The `.env` file is **never committed to Git**. Each developer must create their own. See Step 3 above.
+
+If `npm run dev` in `frontend/` says `'vite' is not recognized`, dependencies were not installed. Run `npm run setup` from the repository root, or run `npm install` inside `frontend/`.
+
+If signup/login says the backend cannot be reached, start the backend and confirm `http://localhost:5001/api/health` works. Also check `VITE_API_BASE_URL` if you created `frontend/.env`.
 
 If signup/login returns `Internal Server Error`, check that `backend/.env` exists, `JWT_SECRET` is set, MongoDB is running, and `MONGODB_URI` points to the running MongoDB instance.
+
+---
+
+## Pushing Updates
+
+On Windows, use the helper script from the project root:
+
+```bat
+push-to-github.bat "Describe the update"
+```
+
+The script checks required setup files, runs the frontend build, stages normal repository changes, commits, and pushes the current branch to GitHub. It relies on `.gitignore` so local files like `node_modules`, `dist`, `.env`, and Codex attachment folders are not uploaded. New users rebuild dependencies from the committed `package-lock.json` files with `npm run setup`.
 
 ---
 
